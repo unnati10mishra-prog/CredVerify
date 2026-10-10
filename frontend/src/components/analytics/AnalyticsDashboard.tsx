@@ -24,6 +24,7 @@ import {
   BarChart2,
   Calendar,
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 const MONTHLY_ISSUANCE_DATA = [
   { month: 'May', issued: 45, verifications: 120 },
@@ -59,28 +60,36 @@ const TOP_INSTITUTIONS = [
 
 export const AnalyticsDashboard: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'30d' | '6m' | '1y'>('6m');
+  const { theme } = useTheme();
+
+  const isDark = theme === 'dark';
+  const gridColor = isDark ? '#1e293b' : '#f1f5f9';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const tooltipBg = isDark ? '#0f172a' : '#ffffff';
+  const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
+  const tooltipText = isDark ? '#ffffff' : '#0f172a';
 
   return (
-    <div className="space-y-8 animate-in fade-in">
+    <div className="space-y-8 animate-in fade-in transition-colors">
       {/* Analytics Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+          <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400">
             <BarChart2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">Power BI & Azure SQL Analytics Engine</h3>
-            <p className="text-xs text-slate-400">Aggregating from vw_PublicVerification and Verifications table</p>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Power BI & Azure SQL Analytics Engine</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Aggregating from vw_PublicVerification and Verifications table</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-slate-400" />
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+          <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
             <button
               onClick={() => setTimeRange('30d')}
               className={`px-3 py-1 rounded-lg font-semibold transition ${
-                timeRange === '30d' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                timeRange === '30d' ? 'bg-purple-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Last 30 Days
@@ -88,7 +97,7 @@ export const AnalyticsDashboard: React.FC = () => {
             <button
               onClick={() => setTimeRange('6m')}
               className={`px-3 py-1 rounded-lg font-semibold transition ${
-                timeRange === '6m' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                timeRange === '6m' ? 'bg-purple-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Last 6 Months
@@ -96,7 +105,7 @@ export const AnalyticsDashboard: React.FC = () => {
             <button
               onClick={() => setTimeRange('1y')}
               className={`px-3 py-1 rounded-lg font-semibold transition ${
-                timeRange === '1y' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                timeRange === '1y' ? 'bg-purple-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               All Time
@@ -107,57 +116,57 @@ export const AnalyticsDashboard: React.FC = () => {
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
             <span>Total Issued Credentials</span>
-            <Database className="w-4 h-4 text-blue-400" />
+            <Database className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="text-2xl font-black text-white">1,332</div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+          <div className="text-2xl font-black text-slate-900 dark:text-white">1,332</div>
+          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
             <TrendingUp className="w-3.5 h-3.5" /> +24.8% from last month
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
             <span>Public Verifications</span>
-            <Activity className="w-4 h-4 text-emerald-400" />
+            <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-2xl font-black text-white">3,690</div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+          <div className="text-2xl font-black text-slate-900 dark:text-white">3,690</div>
+          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
             <TrendingUp className="w-3.5 h-3.5" /> 97.1% Successful Lookups
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
             <span>Revocation Rate</span>
-            <Ban className="w-4 h-4 text-rose-400" />
+            <Ban className="w-4 h-4 text-rose-600 dark:text-rose-400" />
           </div>
-          <div className="text-2xl font-black text-rose-400">5.1%</div>
-          <div className="text-xs text-slate-400">68 total revocations with audit reason</div>
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400">5.1%</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">68 total revocations with audit reason</div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs">
             <span>Anomaly Threat Index</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-2xl font-black text-emerald-400">0.02%</div>
-          <div className="text-xs text-slate-400">Burst lookups within normal thresholds</div>
+          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">0.02%</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">Burst lookups within normal thresholds</div>
         </div>
       </div>
 
       {/* Main Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart 1: Monthly Issuance & Verification Growth */}
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-bold text-white">Issuance & Verification Trajectory</h4>
-              <p className="text-xs text-slate-400">Cumulative issuance vs employer verification queries</p>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Issuance & Verification Trajectory</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Cumulative issuance vs employer verification queries</p>
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">
+            <span className="text-xs px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
               Monthly Trend
             </span>
           </div>
@@ -175,12 +184,12 @@ export const AnalyticsDashboard: React.FC = () => {
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="month" stroke="#64748b" fontSize={11} />
-                <YAxis stroke="#64748b" fontSize={11} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="month" stroke={textColor} fontSize={11} />
+                <YAxis stroke={textColor} fontSize={11} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                  contentStyle={{ backgroundColor: tooltipBg, borderColor: tooltipBorder, borderRadius: '12px', color: tooltipText }}
+                  labelStyle={{ color: tooltipText, fontWeight: 'bold' }}
                 />
                 <Area type="monotone" dataKey="verifications" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorVerif)" name="Verifications" />
                 <Area type="monotone" dataKey="issued" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorIssued)" name="Credentials Issued" />
@@ -190,14 +199,14 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Chart 2: Daily Verification Outcomes (Success vs Revoked vs 404) */}
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        {/* Chart 2: Daily Verification Outcomes */}
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-bold text-white">Daily Verification Outcomes</h4>
-              <p className="text-xs text-slate-400">Breakdown of Valid, Revoked, and Not Found lookups</p>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Daily Verification Outcomes</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Breakdown of Valid, Revoked, and Not Found lookups</p>
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
+            <span className="text-xs px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
               Past 7 Days
             </span>
           </div>
@@ -205,16 +214,16 @@ export const AnalyticsDashboard: React.FC = () => {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={VERIFICATION_OUTCOME_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="day" stroke="#64748b" fontSize={11} />
-                <YAxis stroke="#64748b" fontSize={11} />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                <XAxis dataKey="day" stroke={textColor} fontSize={11} />
+                <YAxis stroke={textColor} fontSize={11} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                  contentStyle={{ backgroundColor: tooltipBg, borderColor: tooltipBorder, borderRadius: '12px', color: tooltipText }}
+                  labelStyle={{ color: tooltipText, fontWeight: 'bold' }}
                 />
                 <Bar dataKey="valid" fill="#10b981" name="Valid" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="revoked" fill="#f43f5e" name="Revoked" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="notFound" fill="#64748b" name="Not Found" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="notFound" fill="#94a3b8" name="Not Found" radius={[4, 4, 0, 0]} />
                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
               </BarChart>
             </ResponsiveContainer>
@@ -222,10 +231,10 @@ export const AnalyticsDashboard: React.FC = () => {
         </div>
 
         {/* Chart 3: Credential Status Distribution (Donut Chart) */}
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <div>
-            <h4 className="text-sm font-bold text-white">Credential Status Distribution</h4>
-            <p className="text-xs text-slate-400">Registry breakdown across all onboarded institutions</p>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Credential Status Distribution</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Registry breakdown across all onboarded institutions</p>
           </div>
 
           <div className="h-64 w-full flex items-center justify-center">
@@ -245,8 +254,8 @@ export const AnalyticsDashboard: React.FC = () => {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }}
-                  labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                  contentStyle={{ backgroundColor: tooltipBg, borderColor: tooltipBorder, borderRadius: '12px', color: tooltipText }}
+                  labelStyle={{ color: tooltipText, fontWeight: 'bold' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '11px' }} />
               </PieChart>
@@ -255,20 +264,20 @@ export const AnalyticsDashboard: React.FC = () => {
         </div>
 
         {/* Table 4: Most Active Issuing Institutions */}
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <div>
-            <h4 className="text-sm font-bold text-white">Most Active Issuing Universities</h4>
-            <p className="text-xs text-slate-400">Onboarded institutions by total volume of issued credentials</p>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Most Active Issuing Universities</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Onboarded institutions by total volume of issued credentials</p>
           </div>
 
           <div className="space-y-4 pt-2">
             {TOP_INSTITUTIONS.map((inst) => (
               <div key={inst.name} className="space-y-1.5">
                 <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-white truncate max-w-[280px]">{inst.name}</span>
-                  <span className="text-slate-400">{inst.count} credentials ({inst.pct}%)</span>
+                  <span className="text-slate-900 dark:text-white truncate max-w-[280px]">{inst.name}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{inst.count} credentials ({inst.pct}%)</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
                     style={{ width: `${inst.pct * 2}%` }}
@@ -279,11 +288,11 @@ export const AnalyticsDashboard: React.FC = () => {
           </div>
 
           {/* Anomaly Detection Banner */}
-          <div className="mt-4 p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+          <div className="mt-4 p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-700 dark:text-purple-300 flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-white">Intelligent Anomaly Detection Extension:</span>
-              <p className="text-slate-300 mt-0.5">
+              <span className="font-bold text-slate-900 dark:text-white">Intelligent Anomaly Detection Extension:</span>
+              <p className="text-slate-600 dark:text-slate-300 mt-0.5">
                 Monitors high-frequency burst failures on single IP hashes. Current query behavior is rated normal.
               </p>
             </div>

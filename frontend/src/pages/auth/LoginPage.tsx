@@ -36,25 +36,25 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-slate-950">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 transition-colors">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-600/20 border border-blue-500/20 dark:border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto">
             <KeyRound className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-black text-white">Portal Sign In</h2>
-          <p className="text-xs text-slate-400">Select your active role to simulate authenticated access</p>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white">Portal Sign In</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Select your active role to simulate authenticated access</p>
         </div>
 
         {/* 1-Click Role Switcher */}
-        <div className="grid grid-cols-3 gap-2 p-1.5 rounded-xl bg-slate-950 border border-slate-800">
+        <div className="grid grid-cols-3 gap-2 p-1.5 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={() => handleRoleSelect('ISSUER')}
             className={`py-2 px-3 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 transition ${
               selectedRole === 'ISSUER'
                 ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Building2 className="w-4 h-4" />
@@ -66,7 +66,7 @@ export const LoginPage: React.FC = () => {
             className={`py-2 px-3 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 transition ${
               selectedRole === 'STUDENT'
                 ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <User className="w-4 h-4" />
@@ -78,7 +78,7 @@ export const LoginPage: React.FC = () => {
             className={`py-2 px-3 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 transition ${
               selectedRole === 'ADMIN'
                 ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
@@ -88,23 +88,23 @@ export const LoginPage: React.FC = () => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Account Email</label>
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Account Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition"
               required
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Password</label>
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition"
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition"
               required
             />
           </div>
