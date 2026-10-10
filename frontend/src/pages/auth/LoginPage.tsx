@@ -1,35 +1,48 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, UserCheck, Building2, User, KeyRound } from 'lucide-react';
-import { mockLogin } from '../../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+import { ShieldCheck, UserCheck, Building2, User, KeyRound, AlertCircle, UserPlus } from 'lucide-react';
+import { mockLogin, loginWithCredentials } from '../../services/api';
 
 export const LoginPage: React.FC = () => {
-  const [selectedRole, setSelectedRole] = useState<'ISSUER' | 'STUDENT' | 'ADMIN'>('ISSUER');
-  const [email, setEmail] = useState('s.jenkins@apex.edu');
-  const [password, setPassword] = useState('••••••••••••');
+  const [selectedRole, setSelectedRole] = useState<'ISSUER' | 'STUDENT' | 'ADMIN' | 'CUSTOM'>('ISSUER');
+  const [email, setEmail] = useState('issuer@apex.edu');
+  const [password, setPassword] = useState('Issuer@123');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleRoleSelect = (role: 'ISSUER' | 'STUDENT' | 'ADMIN') => {
     setSelectedRole(role);
+    setError(null);
     if (role === 'ISSUER') {
-      setEmail('s.jenkins@apex.edu');
+      setEmail('issuer@apex.edu');
+      setPassword('Issuer@123');
     } else if (role === 'STUDENT') {
       setEmail('aditi.sharma@apex.edu');
+      setPassword('Student@123');
     } else {
       setEmail('admin@credverify.gov');
+      setPassword('Admin@123');
     }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      const user = await mockLogin(selectedRole);
+      let user;
+      if (selectedRole !== 'CUSTOM') {
+        user = await mockLogin(selectedRole);
+      } else {
+        user = await loginWithCredentials(email, password);
+      }
       localStorage.setItem('credverify_user', JSON.stringify(user));
       if (user.role === 'ISSUER') navigate('/institution');
       else if (user.role === 'STUDENT') navigate('/student');
       else navigate('/admin');
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials or connection error.');
     } finally {
       setLoading(false);
     }
@@ -86,13 +99,23 @@ export const LoginPage: React.FC = () => {
           </button>
         </div>
 
+        {error && (
+          <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-400">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Account Email</label>
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setSelectedRole('CUSTOM');
+              }}
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition"
               required
             />
@@ -103,7 +126,10 @@ export const LoginPage: React.FC = () => {
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setSelectedRole('CUSTOM');
+              }}
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition"
               required
             />
@@ -115,12 +141,25 @@ export const LoginPage: React.FC = () => {
             className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition shadow-lg disabled:opacity-50"
           >
             <UserCheck className="w-4 h-4" />
-            {loading ? 'Authenticating...' : `Enter as ${selectedRole}`}
+            {loading
+              ? 'Authenticating...'
+              : selectedRole === 'CUSTOM'
+              ? 'Sign In'
+              : `Enter as ${selectedRole}`}
           </button>
         </form>
 
-        <div className="text-center text-[11px] text-slate-500">
-          Enforces RBAC permissions defined in Azure SQL roles table.
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-center space-y-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            New to CredVerify?
+          </p>
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            Create Student Wallet or Apply as Institution
+          </Link>
         </div>
       </div>
     </div>

@@ -3,7 +3,15 @@
  * All calls go to the real FastAPI backend at http://localhost:5000
  * JWT token is stored in localStorage after login.
  */
-import type { Credential, VerificationResult, AuditLogItem, User } from '../types';
+import type {
+  Credential,
+  VerificationResult,
+  AuditLogItem,
+  User,
+  EmailNotification,
+  InstitutionApplicationItem,
+  StaffListResponse,
+} from '../types';
 
 const API_BASE = 'http://localhost:5000';
 
@@ -54,20 +62,43 @@ export async function verifyCredential(credentialId: string): Promise<Verificati
       revoked_at?: string;
       verified_at?: string;
       tamper_evident_hash?: string;
+      evidence_url?: string;
+      evidence_filename?: string;
+      evidence?: {
+        evidence_id: number;
+        file_name: string;
+        file_hash: string;
+        content_type: string;
+        uploaded_at: string;
+        view_url: string;
+      };
+      cryptographic_verification?: {
+        verified: boolean;
+        algorithm: string;
+        signature_hex: string;
+        key_fingerprint: string;
+        institution_signer: string;
+        signed_at: string;
+      };
     }>(res);
 
+    const validStatus = data.status === 'ACTIVE' ? 'VALID' : data.status === 'REVOKED' ? 'REVOKED' : 'NOT_FOUND';
     return {
-      status:            data.status === 'ACTIVE' ? 'VALID' : data.status,
-      credentialId:      data.credential_id,
-      studentName:       data.student_name,
-      programName:       data.program_name,
-      degreeType:        data.degree_type,
-      institutionName:   data.institution_name,
-      issueDate:         data.issue_date,
-      revokedAt:         data.revoked_at,
-      revocationReason:  data.revocation_reason,
-      verifiedAt:        data.verified_at,
-      tamperEvidentHash: data.tamper_evident_hash,
+      status:                    validStatus,
+      credentialId:              data.credential_id,
+      studentName:               data.student_name,
+      programName:               data.program_name,
+      degreeType:                data.degree_type,
+      institutionName:           data.institution_name,
+      issueDate:                 data.issue_date,
+      revokedAt:                 data.revoked_at,
+      revocationReason:          data.revocation_reason,
+      verifiedAt:                data.verified_at,
+      tamperEvidentHash:         data.tamper_evident_hash,
+      evidenceUrl:               data.evidence_url,
+      evidenceFileName:          data.evidence_filename,
+      evidence:                  data.evidence,
+      cryptographicVerification: data.cryptographic_verification,
     };
   } catch (e) {
     // Network error — backend not running
@@ -97,20 +128,65 @@ export async function fetchCredentials(): Promise<Credential[]> {
       program_name: string;
       degree_type: string;
       has_evidence: boolean;
+      key_fingerprint?: string;
     }>
   >(res);
 
   return data.map((c) => ({
-    credentialId:    c.credential_id,
-    studentName:     c.student_name,
-    studentEmail:    c.student_email,
-    programId:       0,
-    programName:     c.program_name,
-    degreeType:      c.degree_type,
-    institutionId:   1,
-    institutionName: 'Apex Institute of Technology',
-    issueDate:       c.issue_date,
-    status:          c.status as 'ACTIVE' | 'REVOKED',
+    credentialId:      c.credential_id,
+    studentName:       c.student_name,
+    studentEmail:      c.student_email,
+    programId:         0,
+    programName:       c.program_name,
+    degreeType:        c.degree_type,
+    institutionId:     1,
+    institutionName:   'Apex Institute of Technology',
+    issueDate:         c.issue_date,
+    status:            c.status as 'ACTIVE' | 'REVOKED',
+    key_fingerprint:   c.key_fingerprint,
+  }));
+}
+
+export async function fetchMyCredentials(): Promise<Credential[]> {
+  const res = await fetch(`${API_BASE}/api/student/credentials`, {
+    headers: authHeaders(),
+  });
+  const data = await handleResponse<
+    Array<{
+      credential_id: string;
+      student_name: string;
+      student_email: string;
+      status: string;
+      issue_date: string;
+      program_name: string;
+      degree_type: string;
+      institution_name: string;
+      tamper_evident_hash?: string;
+      evidence_url?: string;
+      evidence_filename?: string;
+      key_fingerprint?: string;
+      algorithm?: string;
+      signed_at?: string;
+    }>
+  >(res);
+
+  return data.map((c) => ({
+    credentialId:      c.credential_id,
+    studentName:       c.student_name,
+    studentEmail:      c.student_email,
+    programId:         0,
+    programName:       c.program_name,
+    degreeType:        c.degree_type,
+    institutionId:     1,
+    institutionName:   c.institution_name || 'Apex Institute of Technology',
+    issueDate:         c.issue_date,
+    status:            c.status as 'ACTIVE' | 'REVOKED',
+    tamperEvidentHash: c.tamper_evident_hash,
+    evidence_url:      c.evidence_url,
+    evidence_filename: c.evidence_filename,
+    key_fingerprint:   c.key_fingerprint,
+    algorithm:         c.algorithm,
+    signed_at:         c.signed_at,
   }));
 }
 
@@ -166,6 +242,52 @@ export async function revokeCredential(credentialId: string, reason: string): Pr
 
   // Re-fetch the updated credential list isn't needed here — caller refreshes
   return {} as Credential;
+}
+
+// ─── EVIDENCE & TRANSCRIPT ATTACHMENTS ────────────────────────────────────────
+
+export async function uploadCredentialEvidence(
+  credentialId: string,
+  file: File,
+): Promise<{
+  message: string;
+  evidence: {
+    credential_id: string;
+    file_name: string;
+    file_hash: string;
+    content_type: string;
+    storage_provider: string;
+    is_cloud: boolean;
+    view_url: string;
+    uploaded_at: string;
+  };
+}> {
+  const formData = new FormData();
+  formData.append('credential_id', credentialId.trim().toUpperCase());
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/api/evidence`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  });
+
+  return handleResponse(res);
+}
+
+export async function fetchCredentialEvidence(
+  credentialId: string,
+): Promise<Array<{
+  evidence_id: number;
+  credential_id: string;
+  file_name: string;
+  file_hash: string;
+  content_type: string;
+  uploaded_at: string;
+  view_url: string;
+}>> {
+  const res = await fetch(`${API_BASE}/api/credentials/${encodeURIComponent(credentialId)}/evidence`);
+  return handleResponse(res);
 }
 
 // ─── AUDIT LOGS ───────────────────────────────────────────────────────────────
@@ -241,3 +363,207 @@ export async function mockLogin(role: 'ISSUER' | 'STUDENT' | 'ADMIN'): Promise<U
   setToken(data.access_token);
   return data.user as User;
 }
+
+export async function loginWithCredentials(email: string, password: string): Promise<User> {
+  const formBody = new URLSearchParams();
+  formBody.append('username', email.trim());
+  formBody.append('password', password);
+
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody.toString(),
+  });
+
+  const data = await handleResponse<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: number;
+      fullName: string;
+      email: string;
+      role: string;
+      institutionId: number | null;
+      institutionName: string | null;
+    };
+  }>(res);
+
+  setToken(data.access_token);
+  return data.user as User;
+}
+
+// ─── SELF-SERVE ONBOARDING & REGISTRATION ─────────────────────────────────────
+
+export async function registerStudent(data: {
+  fullName: string;
+  email: string;
+  password: string;
+}): Promise<User> {
+  const res = await fetch(`${API_BASE}/api/auth/register-student`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      full_name: data.fullName,
+      email: data.email,
+      password: data.password,
+    }),
+  });
+
+  const result = await handleResponse<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: number;
+      fullName: string;
+      email: string;
+      role: string;
+      institutionId: number | null;
+      institutionName: string | null;
+    };
+  }>(res);
+
+  setToken(result.access_token);
+  return result.user as User;
+}
+
+export async function applyInstitution(data: {
+  institutionName: string;
+  code: string;
+  domain: string;
+  contactEmail: string;
+  adminFullName: string;
+  adminEmail: string;
+  password: string;
+}): Promise<{ message: string; applicationId: number }> {
+  const res = await fetch(`${API_BASE}/api/auth/apply-institution`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      institution_name: data.institutionName,
+      code: data.code,
+      domain: data.domain,
+      contact_email: data.contactEmail,
+      admin_full_name: data.adminFullName,
+      admin_email: data.adminEmail,
+      password: data.password,
+    }),
+  });
+
+  return handleResponse<{ message: string; applicationId: number }>(res);
+}
+
+
+
+export async function fetchInstitutionApplications(): Promise<InstitutionApplicationItem[]> {
+  const res = await fetch(`${API_BASE}/api/admin/institution-applications`, {
+    headers: authHeaders(),
+  });
+  return handleResponse<InstitutionApplicationItem[]>(res);
+}
+
+export async function approveInstitutionApplication(applicationId: number): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/admin/institution-applications/${applicationId}/approve`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse<{ message: string }>(res);
+}
+
+export async function rejectInstitutionApplication(applicationId: number, notes?: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/admin/institution-applications/${applicationId}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ notes }),
+  });
+  return handleResponse<{ message: string }>(res);
+}
+
+// ─── STAFF MANAGEMENT & INVITATIONS ───────────────────────────────────────────
+
+export async function inviteStaffMember(data: {
+  email: string;
+  fullName: string;
+  roleName?: string;
+}): Promise<{ message: string; invite_token: string }> {
+  const res = await fetch(`${API_BASE}/api/institution/invite-staff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({
+      email: data.email,
+      full_name: data.fullName,
+      role_name: data.roleName || 'issuer',
+    }),
+  });
+  return handleResponse<{ message: string; invite_token: string }>(res);
+}
+
+
+
+export async function fetchInstitutionStaff(): Promise<StaffListResponse> {
+  const res = await fetch(`${API_BASE}/api/institution/staff`, {
+    headers: authHeaders(),
+  });
+  return handleResponse<StaffListResponse>(res);
+}
+
+export async function fetchInvitationDetails(token: string): Promise<{
+  valid: boolean;
+  email: string;
+  full_name: string;
+  role: string;
+  institution_name: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/auth/invite/${encodeURIComponent(token)}`);
+  return handleResponse(res);
+}
+
+export async function acceptStaffInvite(data: {
+  token: string;
+  password: string;
+  fullName?: string;
+}): Promise<User> {
+  const res = await fetch(`${API_BASE}/api/auth/accept-invite`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: data.token,
+      password: data.password,
+      full_name: data.fullName,
+    }),
+  });
+
+  const result = await handleResponse<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: number;
+      fullName: string;
+      email: string;
+      role: string;
+      institutionId: number | null;
+      institutionName: string | null;
+    };
+  }>(res);
+
+  setToken(result.access_token);
+  return result.user as User;
+}
+
+// ─── EMAIL NOTIFICATIONS AUDIT ───────────────────────────────────────────────
+
+export async function fetchDispatchedEmails(limit = 20): Promise<{ emails: EmailNotification[]; total: number }> {
+  const res = await fetch(`${API_BASE}/api/notifications/emails?limit=${limit}`, {
+    headers: authHeaders(),
+  });
+  return handleResponse<{ emails: EmailNotification[]; total: number }>(res);
+}
+
+export async function clearDispatchedEmails(): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/notifications/emails`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  await handleResponse<{ message: string }>(res);
+}
+
+

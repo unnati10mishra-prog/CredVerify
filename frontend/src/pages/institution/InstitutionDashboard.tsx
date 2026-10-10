@@ -10,15 +10,34 @@ import {
   AlertTriangle,
   Upload,
   X,
+  UserPlus,
+  Users,
+  Mail,
+  FileText,
 } from 'lucide-react';
-import { fetchCredentials, issueCredential, revokeCredential } from '../../services/api';
-import type { Credential } from '../../types';
+import {
+  fetchCredentials,
+  issueCredential,
+  revokeCredential,
+  inviteStaffMember,
+  fetchInstitutionStaff,
+  uploadCredentialEvidence,
+} from '../../services/api';
+import type { Credential, StaffListResponse } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
 export const InstitutionDashboard: React.FC = () => {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Staff Modal State
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [staffData, setStaffData] = useState<StaffListResponse | null>(null);
+  const [inviteStaffName, setInviteStaffName] = useState('');
+  const [inviteStaffEmail, setInviteStaffEmail] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   // Issue Modal State
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
@@ -28,6 +47,12 @@ export const InstitutionDashboard: React.FC = () => {
   const [newProgramName, setNewProgramName] = useState('Bachelor of Technology in Computer Science');
   const [newDegreeType, setNewDegreeType] = useState('Undergraduate');
   const [newIssueDate, setNewIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedEvidenceFile, setSelectedEvidenceFile] = useState<File | null>(null);
+
+  // Evidence Attach Modal State (for existing credentials)
+  const [evidenceUploadTarget, setEvidenceUploadTarget] = useState<Credential | null>(null);
+  const [targetEvidenceFile, setTargetEvidenceFile] = useState<File | null>(null);
+  const [targetUploadLoading, setTargetUploadLoading] = useState(false);
 
   // Revoke Modal State
   const [selectedForRevoke, setSelectedForRevoke] = useState<Credential | null>(null);
@@ -44,6 +69,15 @@ export const InstitutionDashboard: React.FC = () => {
     }
   };
 
+  const loadStaff = async () => {
+    try {
+      const data = await fetchInstitutionStaff();
+      setStaffData(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -52,19 +86,46 @@ export const InstitutionDashboard: React.FC = () => {
     e.preventDefault();
     setIssueLoading(true);
     try {
-      await issueCredential({
+      const created = await issueCredential({
         studentName: newStudentName,
         studentEmail: newStudentEmail,
         programName: newProgramName,
         degreeType: newDegreeType,
         issueDate: newIssueDate,
       });
+
+      // If user selected an evidence document, upload it immediately
+      if (selectedEvidenceFile && created.credentialId) {
+        try {
+          await uploadCredentialEvidence(created.credentialId, selectedEvidenceFile);
+        } catch (uploadErr) {
+          console.warn('Evidence file upload warning:', uploadErr);
+        }
+      }
+
       setIsIssueModalOpen(false);
       setNewStudentName('');
       setNewStudentEmail('');
+      setSelectedEvidenceFile(null);
       await loadData();
     } finally {
       setIssueLoading(false);
+    }
+  };
+
+  const handleAttachEvidenceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!evidenceUploadTarget || !targetEvidenceFile) return;
+    setTargetUploadLoading(true);
+    try {
+      await uploadCredentialEvidence(evidenceUploadTarget.credentialId, targetEvidenceFile);
+      setEvidenceUploadTarget(null);
+      setTargetEvidenceFile(null);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload evidence file.');
+    } finally {
+      setTargetUploadLoading(false);
     }
   };
 
@@ -78,6 +139,27 @@ export const InstitutionDashboard: React.FC = () => {
       await loadData();
     } finally {
       setRevokeLoading(false);
+    }
+  };
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteLoading(true);
+    setInviteSuccess(null);
+    try {
+      await inviteStaffMember({
+        email: inviteStaffEmail,
+        fullName: inviteStaffName,
+        roleName: 'issuer',
+      });
+      setInviteSuccess(`Invitation dispatched to ${inviteStaffEmail}. They will receive an email to activate their account.`);
+      setInviteStaffName('');
+      setInviteStaffEmail('');
+      await loadStaff();
+    } catch (err: any) {
+      alert(err.message || 'Failed to dispatch staff invitation.');
+    } finally {
+      setInviteLoading(false);
     }
   };
 
@@ -105,13 +187,26 @@ export const InstitutionDashboard: React.FC = () => {
             </h1>
           </div>
 
-          <button
-            onClick={() => setIsIssueModalOpen(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition shadow-lg"
-          >
-            <Plus className="w-4 h-4" />
-            Issue New Credential
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setIsStaffModalOpen(true);
+                loadStaff();
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs transition shadow-sm"
+            >
+              <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              Team & Staff Invites
+            </button>
+
+            <button
+              onClick={() => setIsIssueModalOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm transition shadow-lg"
+            >
+              <Plus className="w-4 h-4" />
+              Issue New Credential
+            </button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -207,6 +302,17 @@ export const InstitutionDashboard: React.FC = () => {
                         <StatusBadge status={cred.status} size="sm" />
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
+                        <button
+                          onClick={() => {
+                            setEvidenceUploadTarget(cred);
+                            setTargetEvidenceFile(null);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs transition"
+                          title="Attach or inspect certified evidence document"
+                        >
+                          <FileText className="w-3 h-3" />
+                          Evidence
+                        </button>
                         <a
                           href={`/verify?id=${cred.credentialId}`}
                           target="_blank"
@@ -320,11 +426,28 @@ export const InstitutionDashboard: React.FC = () => {
                 />
               </div>
 
-              {/* Evidence Upload Simulation */}
-              <div className="p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-center space-y-1">
+              {/* Evidence Upload */}
+              <div className="p-3.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 text-center space-y-1.5">
                 <Upload className="w-5 h-5 text-blue-600 dark:text-blue-400 mx-auto" />
-                <p className="text-slate-700 dark:text-slate-300 font-semibold text-[11px]">Upload Transcript / Degree PDF</p>
-                <p className="text-[10px] text-slate-500">Will be uploaded to Azure Blob Storage with SHA-256 hash</p>
+                <div>
+                  <label htmlFor="issue-evidence-upload" className="text-blue-600 dark:text-blue-400 font-semibold text-xs cursor-pointer hover:underline block">
+                    {selectedEvidenceFile ? selectedEvidenceFile.name : 'Attach Transcript / Degree PDF (Pillar 4)'}
+                  </label>
+                  <input
+                    id="issue-evidence-upload"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.docx"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) setSelectedEvidenceFile(e.target.files[0]);
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {selectedEvidenceFile
+                      ? `${(selectedEvidenceFile.size / 1024).toFixed(1)} KB — Uploaded to Azure Blob & Signed`
+                      : 'Computes SHA-256 seal & binds to university cryptographic signature'}
+                  </p>
+                </div>
               </div>
 
               <div className="pt-2 flex justify-end gap-2">
@@ -341,6 +464,78 @@ export const InstitutionDashboard: React.FC = () => {
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold transition shadow-md"
                 >
                   {issueLoading ? 'Issuing in SQL...' : 'Sign & Issue Credential'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Evidence Document Modal */}
+      {evidenceUploadTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-blue-500/40 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Attach Certified Evidence</h3>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-mono">{evidenceUploadTarget.credentialId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEvidenceUploadTarget(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Uploading a certified document stores the file in <strong>Azure Blob Storage</strong> with a <strong>SHA-256 tamper-evident seal</strong> and re-signs the credential with the university's ECDSA private key.
+            </p>
+
+            <form onSubmit={handleAttachEvidenceSubmit} className="space-y-4 text-xs">
+              <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 text-center space-y-2">
+                <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400 mx-auto" />
+                <div>
+                  <label htmlFor="evidence-file-input" className="text-blue-600 dark:text-blue-400 font-semibold cursor-pointer hover:underline block text-xs">
+                    {targetEvidenceFile ? targetEvidenceFile.name : 'Select Official Transcript / PDF'}
+                  </label>
+                  <input
+                    id="evidence-file-input"
+                    type="file"
+                    required
+                    accept=".pdf,.png,.jpg,.jpeg,.docx"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) setTargetEvidenceFile(e.target.files[0]);
+                    }}
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {targetEvidenceFile
+                      ? `${(targetEvidenceFile.size / 1024).toFixed(1)} KB selected`
+                      : 'PDF, JPG, or PNG files up to 10MB'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEvidenceUploadTarget(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={targetUploadLoading || !targetEvidenceFile}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold transition shadow-md flex items-center gap-1.5"
+                >
+                  {targetUploadLoading ? 'Hashing & Uploading...' : 'Upload & Re-sign Credential'}
                 </button>
               </div>
             </form>
@@ -395,6 +590,134 @@ export const InstitutionDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Staff & Team Management Modal */}
+      {isStaffModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Registrar Staff & Delegated Issuers</h3>
+                  <p className="text-xs text-slate-500">Authorize faculty and registrar staff to issue degrees</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsStaffModalOpen(false);
+                  setInviteSuccess(null);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Invite Form */}
+            <form onSubmit={handleInviteSubmit} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                <UserPlus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>Invite New Registrar Staff Member</span>
+              </div>
+
+              {inviteSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 text-xs text-emerald-700 dark:text-emerald-400">
+                  {inviteSuccess}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700 dark:text-slate-300">Staff Full Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Dr. Robert Vance"
+                    value={inviteStaffName}
+                    onChange={(e) => setInviteStaffName(e.target.value)}
+                    required
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-medium text-slate-700 dark:text-slate-300">Institutional Email</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. r.vance@apex.edu"
+                    value={inviteStaffEmail}
+                    onChange={(e) => setInviteStaffEmail(e.target.value)}
+                    required
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={inviteLoading}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow transition disabled:opacity-50"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  {inviteLoading ? 'Dispatching...' : 'Send Staff Invitation'}
+                </button>
+              </div>
+            </form>
+
+            {/* Active Members & Pending Invites List */}
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2">
+                  Active Faculty & Issuers ({staffData?.members?.length || 0})
+                </h4>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
+                  {staffData?.members?.map((m) => (
+                    <div key={m.user_id} className="p-3 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white">{m.full_name}</div>
+                        <div className="text-[11px] text-slate-500">{m.email}</div>
+                      </div>
+                      <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold uppercase">
+                        {m.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {staffData?.invitations && staffData.invitations.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-2">
+                    Pending Invitations ({staffData.invitations.filter((i) => i.status === 'PENDING').length})
+                  </h4>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
+                    {staffData.invitations.map((inv) => (
+                      <div key={inv.invitation_id} className="p-3 flex items-center justify-between text-xs">
+                        <div>
+                          <div className="font-semibold text-slate-900 dark:text-white">{inv.full_name}</div>
+                          <div className="text-[11px] text-slate-500">{inv.email}</div>
+                        </div>
+                        <span
+                          className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                            inv.status === 'ACCEPTED'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

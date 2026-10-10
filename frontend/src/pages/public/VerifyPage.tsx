@@ -15,6 +15,9 @@ import {
   Printer,
   Copy,
   Check,
+  FileText,
+  KeyRound,
+  ExternalLink,
 } from 'lucide-react';
 import { verifyCredential } from '../../services/api';
 import type { VerificationResult, VerificationState } from '../../types';
@@ -249,19 +252,95 @@ export const VerifyPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Cryptographic SHA-256 Hash Seal */}
-            {result.tamperEvidentHash && (
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-600 dark:text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                  <span className="text-slate-500">Tamper-Evident SHA-256:</span>
-                  <span className="truncate max-w-[280px] sm:max-w-md text-emerald-600 dark:text-emerald-300">
-                    {result.tamperEvidentHash}
+            {/* Cryptographic ECDSA Signature Verification Card */}
+            {result.cryptographicVerification && (
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800/80 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      <KeyRound className="w-4 h-4" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Asymmetric Cryptographic Signature (Pillar 5)
+                    </span>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Mathematically Verified with Registered Key
                   </span>
                 </div>
-                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                  Cryptographically Bound
-                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Algorithm:</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{result.cryptographicVerification.algorithm}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Signing Authority:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{result.cryptographicVerification.institution_signer}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px]">Public Key Fingerprint:</span>
+                    <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">{result.cryptographicVerification.key_fingerprint}</span>
+                  </div>
+                </div>
+
+                <div className="pt-1 text-[11px] font-mono text-slate-500 flex items-center justify-between gap-2 bg-slate-100 dark:bg-slate-900/60 p-2 rounded-lg">
+                  <span className="truncate">
+                    Signature: <span className="text-slate-700 dark:text-slate-300">{result.cryptographicVerification.signature_hex}</span>
+                  </span>
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                    ECDSA P-256 Valid
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Official Evidence & Cloud Storage Document Card */}
+            {(result.evidenceUrl || result.evidenceFileName) && (
+              <div className="p-4 rounded-xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-600 text-white">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                        Official Academic Evidence Document (Pillar 4)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-mono">
+                        {result.evidenceFileName || 'Official_Transcript.pdf'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {result.evidenceUrl && (
+                    <a
+                      href={result.evidenceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      View Certified Document (Expiring SAS Link)
+                    </a>
+                  )}
+                </div>
+
+                {result.tamperEvidentHash && (
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-slate-600 dark:text-slate-400 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                      <span className="text-slate-500">Tamper-Evident SHA-256:</span>
+                      <span className="truncate max-w-[280px] sm:max-w-md text-emerald-600 dark:text-emerald-300 font-bold">
+                        {result.tamperEvidentHash}
+                      </span>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      Immutable Hash Verified
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>

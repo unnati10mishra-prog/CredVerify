@@ -42,3 +42,36 @@ class VerificationResult(BaseModel):
     revoked_at: Optional[datetime] = None
     verified_at: Optional[str] = None
     tamper_evident_hash: Optional[str] = None
+
+
+class StudentRegister(BaseModel):
+    full_name: str
+    email: EmailStr
+    password: str
+
+
+class InstitutionApply(BaseModel):
+    institution_name: str
+    code: str
+    domain: str
+    contact_email: EmailStr
+    admin_full_name: str
+    admin_email: EmailStr
+    password: str
+
+
+class StaffInviteCreate(BaseModel):
+    email: EmailStr
+    full_name: str
+    role_name: str = "issuer"
+
+
+class StaffInviteAccept(BaseModel):
+    token: str
+    password: str
+    full_name: Optional[str] = None
+
+
+class ApplicationReview(BaseModel):
+    notes: Optional[str] = None
+

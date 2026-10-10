@@ -20,6 +20,9 @@ CREATE TABLE Institutions (
     Domain NVARCHAR(100) NULL,
     ContactEmail NVARCHAR(100) NOT NULL,
     IsVerified BIT NOT NULL DEFAULT 1,
+    PublicKeyPem NVARCHAR(MAX) NULL,     -- ECDSA SECP256R1 Public Key (PEM format)
+    PrivateKeyPem NVARCHAR(MAX) NULL,    -- Asymmetric Institutional Private Key
+    KeyFingerprint VARCHAR(100) NULL,    -- SHA-256 Public Key Fingerprint
     CreatedAt DATETIME2 DEFAULT SYSUTCDATETIME()
 );
 
@@ -79,6 +82,21 @@ CREATE TABLE CredentialEvidence (
     ContentType VARCHAR(100) NOT NULL,
     UploadedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
     CONSTRAINT FK_CredentialEvidence_Credentials FOREIGN KEY (CredentialId) REFERENCES Credentials(CredentialId) ON DELETE CASCADE
+);
+
+-- 6b. CREDENTIAL SIGNATURES TABLE (Asymmetric ECDSA / University Keypairs)
+CREATE TABLE CredentialSignatures (
+    SignatureId INT IDENTITY(1,1) PRIMARY KEY,
+    CredentialId NVARCHAR(64) NOT NULL UNIQUE,
+    InstitutionId INT NOT NULL,
+    Algorithm VARCHAR(50) NOT NULL DEFAULT 'ECDSA-SECP256R1-SHA256',
+    PublicKeyPem NVARCHAR(MAX) NOT NULL,
+    KeyFingerprint VARCHAR(100) NOT NULL,
+    SignatureHex VARCHAR(512) NOT NULL,
+    PayloadDigest CHAR(64) NOT NULL,
+    SignedAt DATETIME2 DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_CredentialSignatures_Credentials FOREIGN KEY (CredentialId) REFERENCES Credentials(CredentialId) ON DELETE CASCADE,
+    CONSTRAINT FK_CredentialSignatures_Institutions FOREIGN KEY (InstitutionId) REFERENCES Institutions(InstitutionId)
 );
 
 -- 7. VERIFICATIONS TABLE (Public / Employer verification events)
@@ -177,3 +195,44 @@ INNER JOIN Institutions i ON c.InstitutionId = i.InstitutionId
 INNER JOIN Programs p ON c.ProgramId = p.ProgramId
 LEFT JOIN Revocations r ON c.CredentialId = r.CredentialId;
 GO
+
+-- ------------------------------------------------------------------------------
+-- Table 10: InstitutionApplications (Onboarding & Vetting Workflow)
+-- ------------------------------------------------------------------------------
+CREATE TABLE InstitutionApplications (
+    ApplicationId     INT IDENTITY(1,1) PRIMARY KEY,
+    InstitutionName   NVARCHAR(150) NOT NULL,
+    Code              NVARCHAR(20) NOT NULL,
+    Domain            NVARCHAR(100) NOT NULL,
+    ContactEmail      NVARCHAR(150) NOT NULL,
+    AdminFullName     NVARCHAR(100) NOT NULL,
+    AdminEmail        NVARCHAR(150) NOT NULL,
+    PasswordHash      NVARCHAR(256) NOT NULL,
+    Status            NVARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (Status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    Notes             NVARCHAR(500),
+    CreatedAt         DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    ReviewedAt        DATETIME2 NULL,
+    ReviewedByUserId  INT NULL,
+    CONSTRAINT FK_App_ReviewedBy FOREIGN KEY (ReviewedByUserId) REFERENCES Users(UserId)
+);
+GO
+
+-- ------------------------------------------------------------------------------
+-- Table 11: StaffInvitations (Institutional Staff Delegation)
+-- ------------------------------------------------------------------------------
+CREATE TABLE StaffInvitations (
+    InvitationId      INT IDENTITY(1,1) PRIMARY KEY,
+    InstitutionId     INT NOT NULL,
+    InvitedByUserId   INT NOT NULL,
+    FullName          NVARCHAR(100) NOT NULL,
+    Email             NVARCHAR(150) NOT NULL,
+    RoleName          NVARCHAR(50) NOT NULL DEFAULT 'issuer',
+    Token             NVARCHAR(64) NOT NULL UNIQUE,
+    Status            NVARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (Status IN ('PENDING', 'ACCEPTED', 'EXPIRED')),
+    CreatedAt         DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    ExpiresAt         DATETIME2 NULL,
+    CONSTRAINT FK_Invite_Institution FOREIGN KEY (InstitutionId) REFERENCES Institutions(InstitutionId),
+    CONSTRAINT FK_Invite_InvitedBy FOREIGN KEY (InvitedByUserId) REFERENCES Users(UserId)
+);
+GO
+

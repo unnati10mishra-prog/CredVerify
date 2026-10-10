@@ -31,7 +31,8 @@ CredVerify/
 │   └── README.md         # Database documentation & SQL demonstration notes
 ├── docs/                 # Project Documentation
 │   ├── ARCHITECTURE.md   # System architecture, DP-900 cloud mapping & viva guide
-│   └── API_CONTRACTS.md  # Detailed API contracts between Frontend and Backend
+│   ├── API_CONTRACTS.md  # Detailed API contracts between Frontend and Backend
+│   └── ROADMAP.md        # Production readiness analysis & roadmap milestones
 ├── .env.example          # Environment variables template (NO SECRETS)
 ├── .gitignore            # Multi-tier ignore rules (protects credentials & build artifacts)
 └── README.md             # Root documentation

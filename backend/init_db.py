@@ -6,6 +6,8 @@ Usage: python init_db.py
 import sqlite3
 import os
 from passlib.context import CryptContext
+import crypto_service
+import storage_service
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "credverify.db")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -26,13 +28,16 @@ def init_db():
         );
 
         CREATE TABLE IF NOT EXISTS Institutions (
-            InstitutionId INTEGER PRIMARY KEY AUTOINCREMENT,
-            Name          TEXT NOT NULL,
-            Code          TEXT NOT NULL UNIQUE,
-            Domain        TEXT,
-            ContactEmail  TEXT NOT NULL,
-            IsVerified    INTEGER NOT NULL DEFAULT 1,
-            CreatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP
+            InstitutionId   INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name            TEXT NOT NULL,
+            Code            TEXT NOT NULL UNIQUE,
+            Domain          TEXT,
+            ContactEmail    TEXT NOT NULL,
+            IsVerified      INTEGER NOT NULL DEFAULT 1,
+            PublicKeyPem    TEXT,
+            PrivateKeyPem   TEXT,
+            KeyFingerprint  TEXT,
+            CreatedAt       DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS Users (
@@ -87,6 +92,20 @@ def init_db():
             FOREIGN KEY (CredentialId) REFERENCES Credentials(CredentialId)
         );
 
+        CREATE TABLE IF NOT EXISTS CredentialSignatures (
+            SignatureId     INTEGER PRIMARY KEY AUTOINCREMENT,
+            CredentialId    TEXT NOT NULL UNIQUE,
+            InstitutionId   INTEGER NOT NULL,
+            Algorithm       TEXT NOT NULL DEFAULT 'ECDSA-SECP256R1-SHA256',
+            PublicKeyPem    TEXT NOT NULL,
+            KeyFingerprint  TEXT NOT NULL,
+            SignatureHex    TEXT NOT NULL,
+            PayloadDigest   TEXT NOT NULL,
+            SignedAt        DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (CredentialId)  REFERENCES Credentials(CredentialId),
+            FOREIGN KEY (InstitutionId) REFERENCES Institutions(InstitutionId)
+        );
+
         CREATE TABLE IF NOT EXISTS Verifications (
             VerificationId INTEGER PRIMARY KEY AUTOINCREMENT,
             CredentialId   TEXT NOT NULL,
@@ -119,7 +138,49 @@ def init_db():
             Timestamp    DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (ActorUserId) REFERENCES Users(UserId)
         );
+
+        CREATE TABLE IF NOT EXISTS InstitutionApplications (
+            ApplicationId     INTEGER PRIMARY KEY AUTOINCREMENT,
+            InstitutionName   TEXT NOT NULL,
+            Code              TEXT NOT NULL,
+            Domain            TEXT NOT NULL,
+            ContactEmail      TEXT NOT NULL,
+            AdminFullName     TEXT NOT NULL,
+            AdminEmail        TEXT NOT NULL,
+            PasswordHash      TEXT NOT NULL,
+            Status            TEXT NOT NULL DEFAULT 'PENDING',
+            Notes             TEXT,
+            CreatedAt         DATETIME DEFAULT CURRENT_TIMESTAMP,
+            ReviewedAt        DATETIME,
+            ReviewedByUserId  INTEGER,
+            FOREIGN KEY (ReviewedByUserId) REFERENCES Users(UserId)
+        );
+
+        CREATE TABLE IF NOT EXISTS StaffInvitations (
+            InvitationId      INTEGER PRIMARY KEY AUTOINCREMENT,
+            InstitutionId     INTEGER NOT NULL,
+            InvitedByUserId   INTEGER NOT NULL,
+            FullName          TEXT NOT NULL,
+            Email             TEXT NOT NULL,
+            RoleName          TEXT NOT NULL DEFAULT 'issuer',
+            Token             TEXT NOT NULL UNIQUE,
+            Status            TEXT NOT NULL DEFAULT 'PENDING',
+            CreatedAt         DATETIME DEFAULT CURRENT_TIMESTAMP,
+            ExpiresAt         DATETIME,
+            FOREIGN KEY (InstitutionId)   REFERENCES Institutions(InstitutionId),
+            FOREIGN KEY (InvitedByUserId) REFERENCES Users(UserId)
+        );
     """)
+
+    # ─── Ensure columns exist on existing databases ───────────────────────────
+    c.execute("PRAGMA table_info(Institutions)")
+    cols = [col[1] for col in c.fetchall()]
+    if "PublicKeyPem" not in cols:
+        c.execute("ALTER TABLE Institutions ADD COLUMN PublicKeyPem TEXT")
+    if "PrivateKeyPem" not in cols:
+        c.execute("ALTER TABLE Institutions ADD COLUMN PrivateKeyPem TEXT")
+    if "KeyFingerprint" not in cols:
+        c.execute("ALTER TABLE Institutions ADD COLUMN KeyFingerprint TEXT")
 
     # ─── Seed Roles ───────────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM Roles")
@@ -134,11 +195,23 @@ def init_db():
     # ─── Seed Institution ─────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM Institutions")
     if c.fetchone()[0] == 0:
+        priv, pub, fp = crypto_service.generate_institution_keypair()
         c.execute("""
-            INSERT INTO Institutions (Name, Code, Domain, ContactEmail, IsVerified)
-            VALUES ('Apex Institute of Technology', 'AIT', 'apex.edu', 'registrar@apex.edu', 1)
-        """)
-        print("  ✔ Seeded 1 institution")
+            INSERT INTO Institutions (Name, Code, Domain, ContactEmail, IsVerified, PublicKeyPem, PrivateKeyPem, KeyFingerprint)
+            VALUES ('Apex Institute of Technology', 'AIT', 'apex.edu', 'registrar@apex.edu', 1, ?, ?, ?)
+        """, (pub, priv, fp))
+        print("  [OK] Seeded 1 institution with cryptographic keypair")
+    else:
+        # Backfill institution keypair if missing
+        c.execute("SELECT InstitutionId, PublicKeyPem FROM Institutions")
+        for inst_id, pub in c.fetchall():
+            if not pub:
+                priv, pub, fp = crypto_service.generate_institution_keypair()
+                c.execute(
+                    "UPDATE Institutions SET PublicKeyPem = ?, PrivateKeyPem = ?, KeyFingerprint = ? WHERE InstitutionId = ?",
+                    (pub, priv, fp, inst_id),
+                )
+                print(f"  [OK] Generated cryptographic keypair for Institution #{inst_id}")
 
     # ─── Seed Programs ────────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM Programs")
@@ -152,7 +225,7 @@ def init_db():
                 ("Master of Business Administration",             "MBA",  "Postgraduate"),
             ]
         )
-        print("  ✔ Seeded 4 programs")
+        print("  [OK] Seeded 4 programs")
 
     # ─── Seed Users (bcrypt-hashed passwords) ────────────────────────────────
     c.execute("SELECT COUNT(*) FROM Users")
@@ -169,7 +242,7 @@ def init_db():
                 (1,    3, "Aditi Sharma",      "aditi.sharma@apex.edu", student_hash),
             ]
         )
-        print("  ✔ Seeded 3 users")
+        print("  [OK] Seeded 3 users")
 
     # ─── Seed Credentials ─────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM Credentials")
@@ -188,6 +261,60 @@ def init_db():
             VALUES ('CRED-2025-ME402', 1, 'Academic integrity violation: falsified examination records.', 'ACTIVE', '2026-02-14 11:20:00')
         """)
         print("  [OK] Seeded 3 credentials (2 ACTIVE, 1 REVOKED)")
+
+    # ─── Seed Cryptographic Signatures for Credentials ───────────────────────
+    c.execute("SELECT CredentialId, InstitutionId, ProgramId, StudentName, StudentEmail, IssueDate FROM Credentials")
+    all_creds = c.fetchall()
+    for cred_id, inst_id, prog_id, s_name, s_email, i_date in all_creds:
+        c.execute("SELECT SignatureId FROM CredentialSignatures WHERE CredentialId = ?", (cred_id,))
+        if not c.fetchone():
+            c.execute("SELECT PublicKeyPem, PrivateKeyPem, KeyFingerprint FROM Institutions WHERE InstitutionId = ?", (inst_id,))
+            inst_row = c.fetchone()
+            if inst_row and inst_row[0] and inst_row[1]:
+                pub_pem, priv_pem, fp = inst_row[0], inst_row[1], inst_row[2]
+                payload = {
+                    "credential_id": cred_id,
+                    "institution_id": inst_id,
+                    "program_id": prog_id,
+                    "student_name": s_name,
+                    "student_email": s_email,
+                    "issue_date": i_date,
+                    "evidence_hash": "",
+                }
+                sig_hex, digest = crypto_service.sign_credential(priv_pem, payload)
+                c.execute("""
+                    INSERT INTO CredentialSignatures (CredentialId, InstitutionId, Algorithm, PublicKeyPem, KeyFingerprint, SignatureHex, PayloadDigest)
+                    VALUES (?, ?, 'ECDSA-SECP256R1-SHA256', ?, ?, ?, ?)
+                """, (cred_id, inst_id, pub_pem, fp, sig_hex, digest))
+                print(f"  [OK] Cryptographically signed credential: {cred_id}")
+
+    # ─── Seed Example Certified Evidence Document for CRED-2026-CS101 ────────
+    c.execute("SELECT COUNT(*) FROM CredentialEvidence WHERE CredentialId = 'CRED-2026-CS101'")
+    if c.fetchone()[0] == 0:
+        sample_transcript = (
+            b"%PDF-1.4 Official Certified Transcript - Apex Institute of Technology\n"
+            b"Student: Aditi Sharma | Program: Bachelor of Technology in Computer Science\n"
+            b"Conferral Date: 2026-05-15 | Cumulative GPA: 3.94 / 4.00 (First Class Distinction)\n"
+            b"Official Seal of the Registrar: Dr. Sarah Jenkins\n"
+            b"Tamper-Evident Security Seal: Apex Academic Registry Azure Node.\n"
+        )
+        evidence_result = storage_service.upload_evidence_file(
+            credential_id="CRED-2026-CS101",
+            file_bytes=sample_transcript,
+            original_filename="Aditi_Sharma_BTech_CS_Official_Transcript.pdf",
+            content_type="application/pdf",
+        )
+        c.execute("""
+            INSERT INTO CredentialEvidence (CredentialId, BlobUrl, FileName, FileHash, ContentType)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            "CRED-2026-CS101",
+            evidence_result["storage_key"],
+            evidence_result["file_name"],
+            evidence_result["file_hash"],
+            evidence_result["content_type"],
+        ))
+        print("  [OK] Seeded verified academic evidence document with SHA-256 seal for CRED-2026-CS101")
 
     # ─── Seed Audit Logs ──────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM AuditLogs")
@@ -216,3 +343,4 @@ def init_db():
 if __name__ == "__main__":
     print("Initializing CredVerify SQLite database...\n")
     init_db()
+
