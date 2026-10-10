@@ -11,6 +11,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { QRCodeSVG } from 'qrcode.react';
 
 export const StudentWalletPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
@@ -100,7 +101,7 @@ export const StudentWalletPage: React.FC = () => {
             {/* QR Code Container */}
             <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center space-y-3">
               <div className="w-32 h-32 rounded-xl bg-white p-2.5 flex items-center justify-center shadow-md">
-                <QrCode className="w-full h-full text-slate-950" />
+                <QRCodeSVG value={verifyUrl} size={108} />
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Scan to Verify</span>
             </div>
