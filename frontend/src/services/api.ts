@@ -1,177 +1,117 @@
+/**
+ * CredVerify API Service
+ * All calls go to the real FastAPI backend at http://localhost:5000
+ * JWT token is stored in localStorage after login.
+ */
 import type { Credential, VerificationResult, AuditLogItem, User } from '../types';
 
-const INITIAL_MOCK_CREDENTIALS: Credential[] = [
-  {
-    credentialId: 'CRED-2026-CS101',
-    studentName: 'Aditi Sharma',
-    studentEmail: 'aditi.sharma@apex.edu',
-    programId: 1,
-    programName: 'Bachelor of Technology in Computer Science',
-    degreeType: 'Undergraduate',
-    institutionId: 10,
-    institutionName: 'Apex Institute of Technology',
-    issueDate: '2026-05-15',
-    status: 'ACTIVE',
-    evidence: {
-      evidenceId: 101,
-      credentialId: 'CRED-2026-CS101',
-      fileName: 'btech_cs_transcript_verified.pdf',
-      blobUrl: 'https://credverifystorage.blob.core.windows.net/evidence/btech_cs.pdf',
-      fileHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      contentType: 'application/pdf',
-      uploadedAt: '2026-05-15T10:30:00Z',
-    },
-  },
-  {
-    credentialId: 'CRED-2025-ME402',
-    studentName: 'Rahul Verma',
-    studentEmail: 'rahul.verma@apex.edu',
-    programId: 2,
-    programName: 'Bachelor of Technology in Mechanical Engineering',
-    degreeType: 'Undergraduate',
-    institutionId: 10,
-    institutionName: 'Apex Institute of Technology',
-    issueDate: '2025-06-20',
-    status: 'REVOKED',
-    revokedAt: '2026-02-14T11:20:00Z',
-    revocationReason: 'Academic integrity violation: falsified examination records.',
-    evidence: {
-      evidenceId: 102,
-      credentialId: 'CRED-2025-ME402',
-      fileName: 'mech_eng_certificate.pdf',
-      blobUrl: 'https://credverifystorage.blob.core.windows.net/evidence/mech_eng.pdf',
-      fileHash: '8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4',
-      contentType: 'application/pdf',
-      uploadedAt: '2025-06-20T14:15:00Z',
-    },
-  },
-  {
-    credentialId: 'CRED-2026-AI990',
-    studentName: 'Priya Nair',
-    studentEmail: 'priya.nair@apex.edu',
-    programId: 3,
-    programName: 'Master of Science in Artificial Intelligence',
-    degreeType: 'Postgraduate',
-    institutionId: 10,
-    institutionName: 'Apex Institute of Technology',
-    issueDate: '2026-08-10',
-    status: 'ACTIVE',
-    evidence: {
-      evidenceId: 103,
-      credentialId: 'CRED-2026-AI990',
-      fileName: 'ms_ai_degree.pdf',
-      blobUrl: 'https://credverifystorage.blob.core.windows.net/evidence/ms_ai.pdf',
-      fileHash: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb',
-      contentType: 'application/pdf',
-      uploadedAt: '2026-08-10T09:00:00Z',
-    },
-  },
-];
+const API_BASE = 'http://localhost:5000';
 
-const INITIAL_MOCK_AUDIT_LOGS: AuditLogItem[] = [
-  {
-    auditId: 1001,
-    actor: 'Dr. Sarah Jenkins (Institution Issuer)',
-    action: 'CREDENTIAL_ISSUED',
-    entityType: 'Credential',
-    entityId: 'CRED-2026-CS101',
-    details: 'Issued Bachelor of Technology degree to Aditi Sharma. Evidence SHA-256 registered.',
-    ipAddress: '192.168.1.42',
-    timestamp: '2026-05-15T10:30:12Z',
-  },
-  {
-    auditId: 1002,
-    actor: 'Dr. Sarah Jenkins (Institution Issuer)',
-    action: 'CREDENTIAL_REVOKED',
-    entityType: 'Credential',
-    entityId: 'CRED-2025-ME402',
-    details: 'Status changed to REVOKED. Reason: Academic integrity violation: falsified examination records.',
-    ipAddress: '192.168.1.42',
-    timestamp: '2026-02-14T11:20:00Z',
-  },
-  {
-    auditId: 1003,
-    actor: 'System Verifier Engine',
-    action: 'PUBLIC_VERIFICATION_CHECK',
-    entityType: 'Verification',
-    entityId: 'CRED-2026-CS101',
-    details: 'Employer scanned QR code. Verification result returned: VALID.',
-    ipAddress: '203.0.113.19',
-    timestamp: '2026-10-10T08:45:22Z',
-  },
-];
+// ─── Token Helpers ────────────────────────────────────────────────────────────
 
-// Helper to get stored credentials or fallback
-function getStoredCredentials(): Credential[] {
-  const data = localStorage.getItem('credverify_credentials');
-  if (data) {
-    try {
-      return JSON.parse(data);
-    } catch {
-      // fallback
-    }
+function getToken(): string | null {
+  return localStorage.getItem('credverify_token');
+}
+
+function setToken(token: string): void {
+  localStorage.setItem('credverify_token', token);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
   }
-  localStorage.setItem('credverify_credentials', JSON.stringify(INITIAL_MOCK_CREDENTIALS));
-  return INITIAL_MOCK_CREDENTIALS;
+  return res.json() as Promise<T>;
 }
 
-function saveStoredCredentials(creds: Credential[]): void {
-  localStorage.setItem('credverify_credentials', JSON.stringify(creds));
-}
+// ─── PUBLIC VERIFICATION ──────────────────────────────────────────────────────
 
-// -----------------------------------------------------------------------------
-// PUBLIC VERIFICATION API
-// -----------------------------------------------------------------------------
 export async function verifyCredential(credentialId: string): Promise<VerificationResult> {
-  // Simulate network latency (400ms) for realistic UI state transitions
-  await new Promise((r) => setTimeout(r, 400));
+  const clean = credentialId.trim().toUpperCase();
 
-  const cleanId = credentialId.trim().toUpperCase();
-  const creds = getStoredCredentials();
-  const match = creds.find((c) => c.credentialId.toUpperCase() === cleanId);
+  try {
+    const res = await fetch(`${API_BASE}/api/verify/${encodeURIComponent(clean)}`);
 
-  if (!match) {
+    if (res.status === 404) {
+      return { status: 'NOT_FOUND', credentialId: clean };
+    }
+
+    const data = await handleResponse<{
+      credential_id: string;
+      status: string;
+      student_name?: string;
+      program_name?: string;
+      degree_type?: string;
+      institution_name?: string;
+      issue_date?: string;
+      revocation_reason?: string;
+      revoked_at?: string;
+      verified_at?: string;
+      tamper_evident_hash?: string;
+    }>(res);
+
     return {
-      status: 'NOT_FOUND',
-      credentialId: cleanId,
+      status:            data.status === 'ACTIVE' ? 'VALID' : data.status,
+      credentialId:      data.credential_id,
+      studentName:       data.student_name,
+      programName:       data.program_name,
+      degreeType:        data.degree_type,
+      institutionName:   data.institution_name,
+      issueDate:         data.issue_date,
+      revokedAt:         data.revoked_at,
+      revocationReason:  data.revocation_reason,
+      verifiedAt:        data.verified_at,
+      tamperEvidentHash: data.tamper_evident_hash,
     };
+  } catch (e) {
+    // Network error — backend not running
+    if (e instanceof TypeError && e.message.includes('fetch')) {
+      return {
+        status:      'NOT_FOUND',
+        credentialId: clean,
+      };
+    }
+    throw e;
   }
-
-  if (match.status === 'REVOKED') {
-    return {
-      status: 'REVOKED',
-      credentialId: match.credentialId,
-      studentName: match.studentName,
-      programName: match.programName,
-      degreeType: match.degreeType,
-      institutionName: match.institutionName,
-      issueDate: match.issueDate,
-      revokedAt: match.revokedAt,
-      revocationReason: match.revocationReason || 'Revoked by issuing authority.',
-      verifiedAt: new Date().toISOString(),
-      tamperEvidentHash: match.evidence?.fileHash,
-    };
-  }
-
-  return {
-    status: 'VALID',
-    credentialId: match.credentialId,
-    studentName: match.studentName,
-    programName: match.programName,
-    degreeType: match.degreeType,
-    institutionName: match.institutionName,
-    issueDate: match.issueDate,
-    verifiedAt: new Date().toISOString(),
-    tamperEvidentHash: match.evidence?.fileHash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-  };
 }
 
-// -----------------------------------------------------------------------------
-// CREDENTIAL MANAGEMENT API (For Issuer/Staff)
-// -----------------------------------------------------------------------------
+// ─── CREDENTIAL MANAGEMENT ────────────────────────────────────────────────────
+
 export async function fetchCredentials(): Promise<Credential[]> {
-  await new Promise((r) => setTimeout(r, 300));
-  return getStoredCredentials();
+  const res = await fetch(`${API_BASE}/api/credentials`, {
+    headers: authHeaders(),
+  });
+  const data = await handleResponse<
+    Array<{
+      credential_id: string;
+      student_name: string;
+      student_email: string;
+      status: string;
+      issue_date: string;
+      program_name: string;
+      degree_type: string;
+      has_evidence: boolean;
+    }>
+  >(res);
+
+  return data.map((c) => ({
+    credentialId:    c.credential_id,
+    studentName:     c.student_name,
+    studentEmail:    c.student_email,
+    programId:       0,
+    programName:     c.program_name,
+    degreeType:      c.degree_type,
+    institutionId:   1,
+    institutionName: 'Apex Institute of Technology',
+    issueDate:       c.issue_date,
+    status:          c.status as 'ACTIVE' | 'REVOKED',
+  }));
 }
 
 export async function issueCredential(data: {
@@ -181,87 +121,123 @@ export async function issueCredential(data: {
   degreeType: string;
   issueDate: string;
 }): Promise<Credential> {
-  await new Promise((r) => setTimeout(r, 600));
-  const creds = getStoredCredentials();
-  const idNumber = Math.floor(1000 + Math.random() * 9000);
-  const newCred: Credential = {
-    credentialId: `CRED-2026-NEW${idNumber}`,
-    studentName: data.studentName,
-    studentEmail: data.studentEmail,
-    programId: 1,
-    programName: data.programName,
-    degreeType: data.degreeType,
-    institutionId: 10,
-    institutionName: 'Apex Institute of Technology',
-    issueDate: data.issueDate || new Date().toISOString().split('T')[0],
-    status: 'ACTIVE',
-    evidence: {
-      evidenceId: Math.floor(Math.random() * 1000),
-      credentialId: `CRED-2026-NEW${idNumber}`,
-      fileName: `${data.studentName.toLowerCase().replace(/\s+/g, '_')}_degree.pdf`,
-      blobUrl: 'https://credverifystorage.blob.core.windows.net/evidence/sample.pdf',
-      fileHash: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
-      contentType: 'application/pdf',
-      uploadedAt: new Date().toISOString(),
-    },
-  };
+  const res = await fetch(`${API_BASE}/api/credentials`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({
+      student_name:   data.studentName,
+      student_email:  data.studentEmail,
+      program_name:   data.programName,
+      degree_type:    data.degreeType,
+      issue_date:     data.issueDate || new Date().toISOString().split('T')[0],
+      institution_id: 1,
+    }),
+  });
 
-  creds.unshift(newCred);
-  saveStoredCredentials(creds);
-  return newCred;
+  const result = await handleResponse<{
+    credential_id: string;
+    status: string;
+    verification_url: string;
+  }>(res);
+
+  // Return a minimal Credential object (matching frontend type)
+  return {
+    credentialId:    result.credential_id,
+    studentName:     data.studentName,
+    studentEmail:    data.studentEmail,
+    programId:       0,
+    programName:     data.programName,
+    degreeType:      data.degreeType,
+    institutionId:   1,
+    institutionName: 'Apex Institute of Technology',
+    issueDate:       data.issueDate,
+    status:          'ACTIVE',
+  };
 }
 
 export async function revokeCredential(credentialId: string, reason: string): Promise<Credential> {
-  await new Promise((r) => setTimeout(r, 500));
-  const creds = getStoredCredentials();
-  const index = creds.findIndex((c) => c.credentialId.toUpperCase() === credentialId.toUpperCase());
-  if (index === -1) throw new Error('Credential not found');
+  const res = await fetch(`${API_BASE}/api/credentials/${credentialId}/revoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ reason }),
+  });
 
-  creds[index].status = 'REVOKED';
-  creds[index].revokedAt = new Date().toISOString();
-  creds[index].revocationReason = reason;
+  await handleResponse<{ success: boolean }>(res);
 
-  saveStoredCredentials(creds);
-  return creds[index];
+  // Re-fetch the updated credential list isn't needed here — caller refreshes
+  return {} as Credential;
 }
 
-// -----------------------------------------------------------------------------
-// AUDIT LOGS API (For Admin)
-// -----------------------------------------------------------------------------
+// ─── AUDIT LOGS ───────────────────────────────────────────────────────────────
+
 export async function fetchAuditLogs(): Promise<AuditLogItem[]> {
-  await new Promise((r) => setTimeout(r, 300));
-  return INITIAL_MOCK_AUDIT_LOGS;
+  const res = await fetch(`${API_BASE}/api/audit`, {
+    headers: authHeaders(),
+  });
+  const data = await handleResponse<
+    Array<{
+      audit_id: number;
+      actor: string;
+      action: string;
+      entity_type: string;
+      entity_id: string;
+      details: string;
+      ip_address: string;
+      timestamp: string;
+    }>
+  >(res);
+
+  return data.map((l) => ({
+    auditId:    l.audit_id,
+    actor:      l.actor,
+    action:     l.action,
+    entityType: l.entity_type,
+    entityId:   l.entity_id,
+    details:    l.details,
+    ipAddress:  l.ip_address,
+    timestamp:  l.timestamp,
+  }));
 }
 
-// -----------------------------------------------------------------------------
-// AUTHENTICATION API
-// -----------------------------------------------------------------------------
+// ─── AUTHENTICATION ───────────────────────────────────────────────────────────
+
+/**
+ * Demo login — each role maps to a seeded account.
+ * Credentials are stored in init_db.py seed data.
+ */
 export async function mockLogin(role: 'ISSUER' | 'STUDENT' | 'ADMIN'): Promise<User> {
-  await new Promise((r) => setTimeout(r, 300));
-  if (role === 'ISSUER') {
-    return {
-      id: 1,
-      fullName: 'Dr. Sarah Jenkins',
-      email: 's.jenkins@apex.edu',
-      role: 'ISSUER',
-      institutionId: 10,
-      institutionName: 'Apex Institute of Technology',
+  const demoCredentials = {
+    ISSUER:  { email: 'issuer@apex.edu',        password: 'Issuer@123' },
+    ADMIN:   { email: 'admin@credverify.gov',   password: 'Admin@123'  },
+    STUDENT: { email: 'aditi.sharma@apex.edu',  password: 'Student@123' },
+  };
+
+  const cred = demoCredentials[role];
+
+  // OAuth2PasswordRequestForm requires application/x-www-form-urlencoded
+  const formBody = new URLSearchParams();
+  formBody.append('username', cred.email);
+  formBody.append('password', cred.password);
+
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody.toString(),
+  });
+
+  const data = await handleResponse<{
+    access_token: string;
+    token_type: string;
+    user: {
+      id: number;
+      fullName: string;
+      email: string;
+      role: string;
+      institutionId: number | null;
+      institutionName: string | null;
     };
-  } else if (role === 'STUDENT') {
-    return {
-      id: 2,
-      fullName: 'Aditi Sharma',
-      email: 'aditi.sharma@apex.edu',
-      role: 'STUDENT',
-      institutionId: 10,
-      institutionName: 'Apex Institute of Technology',
-    };
-  } else {
-    return {
-      id: 3,
-      fullName: 'Marcus Vance',
-      email: 'admin@credverify.gov',
-      role: 'ADMIN',
-    };
-  }
+  }>(res);
+
+  setToken(data.access_token);
+  return data.user as User;
 }

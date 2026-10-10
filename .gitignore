@@ -46,3 +46,23 @@ coverage/
 *.tmp
 *.bak
 scratch/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python
+backend/venv/
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# SQLite database (runtime data — not for version control)
+*.db
+*.sqlite
+*.sqlite3
+
+# Local evidence file uploads
+backend/evidence_files/
