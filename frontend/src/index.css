@@ -12,3 +12,22 @@ body {
   min-height: 100vh;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Dedicated Print Styles for Convocation Diploma */
+@media print {
+  body {
+    background: white !important;
+    color: #0f172a !important;
+  }
+  header, footer, nav, .print\:hidden {
+    display: none !important;
+  }
+  #official-convocation-diploma {
+    box-shadow: none !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-width: 6px !important;
+    page-break-inside: avoid;
+  }
+}

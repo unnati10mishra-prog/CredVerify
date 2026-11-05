@@ -19,6 +19,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { QRCodeSVG } from 'qrcode.react';
 import { fetchMyCredentials, mockLogin } from '../../services/api';
 import type { Credential, User } from '../../types';
+import { ConvocationCertificateModal, type CertificateData } from '../../components/certificate/ConvocationCertificateModal';
 
 export const StudentWalletPage: React.FC = () => {
   const [credentials, setCredentials] = useState<Credential[]>([]);
@@ -26,6 +27,7 @@ export const StudentWalletPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [selectedCert, setSelectedCert] = useState<CertificateData | null>(null);
 
   const loadStudentData = async () => {
     setLoading(true);
@@ -301,6 +303,26 @@ export const StudentWalletPage: React.FC = () => {
                   {/* Action Buttons */}
                   <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center gap-3">
                     <button
+                      onClick={() =>
+                        setSelectedCert({
+                          credentialId: cred.credentialId,
+                          studentName: cred.studentName,
+                          programName: cred.programName,
+                          degreeType: cred.degreeType,
+                          institutionName: cred.institutionName,
+                          issueDate: cred.issueDate,
+                          status: cred.status,
+                          fileHash: cred.tamperEvidentHash,
+                          keyFingerprint: cred.key_fingerprint,
+                          algorithm: cred.algorithm,
+                        })
+                      }
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-semibold text-xs border border-amber-500/30 transition shadow-sm"
+                    >
+                      <Award className="w-4 h-4 text-amber-500" />
+                      View Official Diploma
+                    </button>
+                    <button
                       onClick={() => handleCopy(cred.credentialId)}
                       className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-md"
                     >
@@ -341,6 +363,12 @@ export const StudentWalletPage: React.FC = () => {
             })}
           </div>
         )}
+        {/* Official Convocation Certificate Modal */}
+        <ConvocationCertificateModal
+          isOpen={!!selectedCert}
+          onClose={() => setSelectedCert(null)}
+          data={selectedCert}
+        />
       </div>
     </div>
   );

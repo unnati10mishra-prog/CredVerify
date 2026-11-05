@@ -18,10 +18,12 @@ import {
   FileText,
   KeyRound,
   ExternalLink,
+  Award,
 } from 'lucide-react';
 import { verifyCredential } from '../../services/api';
 import type { VerificationResult, VerificationState } from '../../types';
 import { QRScannerModal } from '../../components/qr/QRScannerModal';
+import { ConvocationCertificateModal } from '../../components/certificate/ConvocationCertificateModal';
 
 export const VerifyPage: React.FC = () => {
   const { credentialId: routeId } = useParams<{ credentialId?: string }>();
@@ -33,6 +35,7 @@ export const VerifyPage: React.FC = () => {
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
 
   // Trigger search
   const handleVerify = async (idToVerify: string) => {
@@ -189,6 +192,13 @@ export const VerifyPage: React.FC = () => {
                 >
                   {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   {copied ? 'Link Copied' : 'Share Verification'}
+                </button>
+                <button
+                  onClick={() => setIsCertModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-sm transition"
+                >
+                  <Award className="w-3.5 h-3.5 text-amber-300" />
+                  View Official Diploma
                 </button>
                 <button
                   onClick={() => window.print()}
@@ -348,16 +358,25 @@ export const VerifyPage: React.FC = () => {
 
         {state === 'REVOKED' && result && (
           <div className="rounded-2xl bg-white dark:bg-slate-900 border border-rose-500/40 p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-6">
-              <div className="w-12 h-12 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                <AlertOctagon className="w-7 h-7" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                  <AlertOctagon className="w-7 h-7" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                    Status: Invalidated
+                  </span>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">Credential Has Been Revoked</h2>
+                </div>
               </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                  Status: Invalidated
-                </span>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Credential Has Been Revoked</h2>
-              </div>
+              <button
+                onClick={() => setIsCertModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-rose-600 dark:text-rose-400 text-xs font-semibold border border-rose-500/30 transition"
+              >
+                <Award className="w-3.5 h-3.5" />
+                Inspect Revoked Diploma
+              </button>
             </div>
 
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-sm space-y-2">
@@ -406,6 +425,26 @@ export const VerifyPage: React.FC = () => {
           </div>
         )}
       </div>
+
+            {/* Official Convocation Certificate Modal */}
+      {result && (
+        <ConvocationCertificateModal
+          isOpen={isCertModalOpen}
+          onClose={() => setIsCertModalOpen(false)}
+          data={{
+            credentialId: result.credentialId,
+            studentName: result.studentName || 'Student Holder',
+            programName: result.programName || 'Degree Program',
+            degreeType: result.degreeType || 'Bachelor of Science',
+            institutionName: result.institutionName || 'University Registry',
+            issueDate: result.issueDate || '2026-05-15',
+            status: result.status,
+            fileHash: result.tamperEvidentHash,
+            keyFingerprint: result.cryptographicVerification?.key_fingerprint,
+            algorithm: result.cryptographicVerification?.algorithm,
+          }}
+        />
+      )}
 
       {/* QR Scanner Simulator Modal */}
       <QRScannerModal
