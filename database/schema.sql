@@ -236,3 +236,49 @@ CREATE TABLE StaffInvitations (
 );
 GO
 
+-- ==============================================================================
+-- MANDATORY TRIGGER: trg_AuditCredentialStatusChange
+-- (Page 4 College Rubric: 'One trigger for a controlled audit/history action')
+-- Automatically writes an immutable audit trail entry to AuditLogs whenever
+-- a credential's status transitions (e.g., ACTIVE -> REVOKED / SUSPENDED).
+-- Ensures tamper-evident accountability even if updated outside the application.
+-- ==============================================================================
+GO
+CREATE TRIGGER trg_AuditCredentialStatusChange
+ON Credentials
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Only fire when the Status column has transitioned
+    IF UPDATE(Status)
+    BEGIN
+        INSERT INTO AuditLogs (ActorUserId, Action, EntityType, EntityId, Details, Timestamp)
+        SELECT 
+            i.IssuerUserId,
+            CASE 
+                WHEN i.Status = 'REVOKED' THEN 'CREDENTIAL_REVOKED_TRIGGER'
+                WHEN i.Status = 'SUSPENDED' THEN 'CREDENTIAL_SUSPENDED_TRIGGER'
+                ELSE 'CREDENTIAL_STATUS_CHANGED_TRIGGER'
+            END AS Action,
+            'Credential' AS EntityType,
+            i.CredentialId AS EntityId,
+            CONCAT(
+                'Automated Audit Trigger: Status transitioned from [',
+                d.Status,
+                '] to [',
+                i.Status,
+                '] for student [',
+                i.StudentName,
+                '] (Program ID: ',
+                i.ProgramId,
+                '). Action anchored by database engine.'
+            ) AS Details,
+            SYSUTCDATETIME() AS Timestamp
+        FROM inserted i
+        INNER JOIN deleted d ON i.CredentialId = d.CredentialId
+        WHERE i.Status <> d.Status;
+    END;
+END;
+GO

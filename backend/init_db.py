@@ -170,6 +170,25 @@ def init_db():
             FOREIGN KEY (InstitutionId)   REFERENCES Institutions(InstitutionId),
             FOREIGN KEY (InvitedByUserId) REFERENCES Users(UserId)
         );
+        CREATE TRIGGER IF NOT EXISTS trg_audit_credential_status
+        AFTER UPDATE OF Status ON Credentials
+        FOR EACH ROW
+        WHEN OLD.Status != NEW.Status
+        BEGIN
+            INSERT INTO AuditLogs (ActorUserId, Action, EntityType, EntityId, Details, Timestamp)
+            VALUES (
+                NEW.IssuerUserId,
+                CASE 
+                    WHEN NEW.Status = 'REVOKED' THEN 'CREDENTIAL_REVOKED_TRIGGER'
+                    WHEN NEW.Status = 'SUSPENDED' THEN 'CREDENTIAL_SUSPENDED_TRIGGER'
+                    ELSE 'CREDENTIAL_STATUS_CHANGED_TRIGGER'
+                END,
+                'Credential',
+                NEW.CredentialId,
+                'Automated Trigger: Status transitioned from [' || OLD.Status || '] to [' || NEW.Status || '] for ' || NEW.StudentName,
+                CURRENT_TIMESTAMP
+            );
+        END;
     """)
 
     # ─── Ensure columns exist on existing databases ───────────────────────────
