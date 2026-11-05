@@ -13,10 +13,13 @@ import {
   Cloud,
   CheckCircle2,
   FileCheck,
+  QrCode,
 } from 'lucide-react';
+import { QRScannerModal } from '../../components/qr/QRScannerModal';
 
 export const LandingPage: React.FC = () => {
   const [quickId, setQuickId] = useState('');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleQuickVerify = (e: React.FormEvent) => {
@@ -60,13 +63,24 @@ export const LandingPage: React.FC = () => {
                 className="w-full bg-transparent pl-12 pr-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none"
               />
             </div>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition"
-            >
-              Verify Now
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold transition border border-slate-200 dark:border-slate-700"
+                title="Scan QR Code"
+              >
+                <QrCode className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="hidden sm:inline">Scan QR</span>
+              </button>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition"
+              >
+                Verify Now
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </form>
 
@@ -186,6 +200,15 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Real-Time Camera QR Scanner Modal */}
+      <QRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanResult={(scannedId) => {
+          navigate(`/verify?id=${encodeURIComponent(scannedId)}`);
+        }}
+      />
     </div>
   );
 };
