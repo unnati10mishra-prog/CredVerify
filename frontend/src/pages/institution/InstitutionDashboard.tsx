@@ -14,6 +14,7 @@ import {
   Users,
   Mail,
   FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   fetchCredentials,
@@ -25,6 +26,7 @@ import {
 } from '../../services/api';
 import type { Credential, StaffListResponse } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { BatchIssueModal } from '../../components/issuer/BatchIssueModal';
 
 export const InstitutionDashboard: React.FC = () => {
   const [credentials, setCredentials] = useState<Credential[]>([]);
@@ -40,6 +42,7 @@ export const InstitutionDashboard: React.FC = () => {
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
   // Issue Modal State
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [issueLoading, setIssueLoading] = useState(false);
   const [newStudentName, setNewStudentName] = useState('');
@@ -198,6 +201,15 @@ export const InstitutionDashboard: React.FC = () => {
               <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               Team & Staff Invites
             </button>
+            <button
+              onClick={() => setIsBatchModalOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm transition shadow-md"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Batch Issue (CSV)
+            </button>
+
+
 
             <button
               onClick={() => setIsIssueModalOpen(true)}
@@ -721,6 +733,12 @@ export const InstitutionDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Batch Credential Issuance Modal */}
+      <BatchIssueModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={() => loadData()}
+      />
     </div>
   );
 };
