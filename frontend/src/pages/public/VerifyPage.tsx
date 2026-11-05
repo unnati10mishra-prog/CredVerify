@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -45,8 +46,14 @@ export const VerifyPage: React.FC = () => {
       const res = await verifyCredential(idToVerify);
       setResult(res);
       setState(res.status);
+      if (res.status === 'VALID') {
+        toast.success('Credential Authenticated: Valid and mathematically verified.');
+      } else if (res.status === 'REVOKED') {
+        toast.error('Notice: This credential has been REVOKED by the institution.');
+      }
     } catch {
       setState('NOT_FOUND');
+      toast.warning('Credential record not found in registry.');
     }
   };
 
@@ -61,6 +68,7 @@ export const VerifyPage: React.FC = () => {
     const url = `${window.location.origin}/verify/${result.credentialId}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
+    toast.success('Verification link copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 

@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -87,6 +88,7 @@ export const QRScannerModal: React.FC<QRScannerModalProps> = ({
   const handleSuccess = (rawText: string) => {
     const credId = extractCredentialId(rawText);
     setScannedSuccessId(credId);
+    toast.success(`QR Recognized: ${credId}`);
 
     // Haptic feedback if available on mobile
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {

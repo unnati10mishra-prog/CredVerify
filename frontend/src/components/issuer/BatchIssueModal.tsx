@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useRef } from 'react';
 import {
   X,
@@ -174,6 +175,7 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast.info('Downloaded convocation batch CSV template');
   };
 
   const handleDownloadReport = () => {
@@ -194,6 +196,7 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast.success('Batch issuance report exported to CSV');
   };
 
   const handleDeleteRow = (id: string) => {
@@ -251,9 +254,9 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
     setRows(demo);
     setIsFinished(false);
     setCompletedCount(0);
+    toast.info('Loaded 4 demo graduation candidates for testing');
   };
 
-  // ─── Execute Batch Issuance ──────────────────────────────────────────────────
   const handleExecuteBatch = async () => {
     const validRows = rows.filter((r) => r.isValid && r.status !== 'SUCCESS');
     if (validRows.length === 0) return;
@@ -307,6 +310,7 @@ export const BatchIssueModal: React.FC<BatchIssueModalProps> = ({
 
     setIsProcessing(false);
     setIsFinished(true);
+    toast.success('Batch convocation completed successfully!');
     onSuccess();
   };
 

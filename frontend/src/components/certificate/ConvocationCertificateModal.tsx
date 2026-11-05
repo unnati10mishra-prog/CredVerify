@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useRef } from 'react';
 import { X, Printer, ShieldCheck, Download, Award, CheckCircle2, AlertOctagon, ExternalLink, GraduationCap } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -51,6 +52,7 @@ export const ConvocationCertificateModal: React.FC<ConvocationCertificateModalPr
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast.success('Diploma QR seal downloaded as SVG!');
   };
 
   return (

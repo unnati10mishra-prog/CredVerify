@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect } from 'react';
 import {
   Building2,
@@ -105,7 +106,9 @@ export const InstitutionDashboard: React.FC = () => {
           console.warn('Evidence file upload warning:', uploadErr);
         }
       }
+      toast.success('Evidence document attached and cryptographically hashed');
 
+      toast.success(`Degree issued for ${newStudentName}!`, { description: `Credential ID: ${created.credentialId} (ECDSA Signed)` });
       setIsIssueModalOpen(false);
       setNewStudentName('');
       setNewStudentEmail('');
@@ -122,6 +125,7 @@ export const InstitutionDashboard: React.FC = () => {
     setTargetUploadLoading(true);
     try {
       await uploadCredentialEvidence(evidenceUploadTarget.credentialId, targetEvidenceFile);
+      toast.success('Academic evidence attached successfully!', { description: 'Stored in Azure Blob Storage with SHA-256 fingerprint.' });
       setEvidenceUploadTarget(null);
       setTargetEvidenceFile(null);
       await loadData();
@@ -138,6 +142,7 @@ export const InstitutionDashboard: React.FC = () => {
     setRevokeLoading(true);
     try {
       await revokeCredential(selectedForRevoke.credentialId, revokeReason);
+      toast.success(`Credential ${selectedForRevoke.credentialId} Revoked`, { description: 'Status updated to REVOKED and immutable audit log created.' });
       setSelectedForRevoke(null);
       await loadData();
     } finally {
@@ -155,6 +160,7 @@ export const InstitutionDashboard: React.FC = () => {
         fullName: inviteStaffName,
         roleName: 'issuer',
       });
+      toast.success(`Invitation dispatched to ${inviteStaffEmail}`, { description: 'Staff member can activate their registrar account.' });
       setInviteSuccess(`Invitation dispatched to ${inviteStaffEmail}. They will receive an email to activate their account.`);
       setInviteStaffName('');
       setInviteStaffEmail('');

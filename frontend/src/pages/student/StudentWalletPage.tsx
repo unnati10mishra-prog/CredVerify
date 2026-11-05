@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -61,6 +62,7 @@ export const StudentWalletPage: React.FC = () => {
     const verifyUrl = `${window.location.origin}/verify?id=${credentialId}`;
     navigator.clipboard.writeText(verifyUrl);
     setCopiedId(credentialId);
+    toast.success('Verification URL copied to clipboard!');
     setTimeout(() => setCopiedId(null), 2500);
   };
 
@@ -79,6 +81,7 @@ export const StudentWalletPage: React.FC = () => {
     downloadLink.click();
     document.body.removeChild(downloadLink);
     URL.revokeObjectURL(blobUrl);
+    toast.success('Credential QR Badge SVG saved to downloads!');
   };
 
   return (
